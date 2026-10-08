@@ -5,12 +5,13 @@ import os
 import urllib.request
 import json
 from datetime import datetime
+import intl_predictor as ip
 
 # ---------------------------------------------------------
 # Page Configuration
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="IPL & Cricket Live Match Center | Aditya Kumar",
+    page_title="Cricket & IPL Match Center | Aditya Kumar",
     page_icon="🏏",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -134,18 +135,6 @@ legend.smooth-legend {
     margin-bottom: 12px;
 }
 
-.pitch-title {
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: #94a3b8;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 10px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
 /* Ball-by-ball pill badges */
 .ball-bubble {
     display: inline-flex;
@@ -234,6 +223,12 @@ legend.smooth-legend {
     box-shadow: 0 20px 40px -15px rgba(239, 68, 68, 0.2), inset 0 1px 0 rgba(248, 113, 113, 0.3);
 }
 
+.draw-win {
+    background: linear-gradient(145deg, rgba(234, 179, 8, 0.12) 0%, rgba(202, 138, 4, 0.02) 100%);
+    border: 1px solid rgba(250, 204, 21, 0.25);
+    box-shadow: 0 20px 40px -15px rgba(234, 179, 8, 0.2), inset 0 1px 0 rgba(250, 204, 21, 0.3);
+}
+
 .res-tag {
     display: inline-block;
     padding: 4px 12px;
@@ -245,7 +240,7 @@ legend.smooth-legend {
 }
 
 .res-number {
-    font-size: 3.8rem;
+    font-size: 3.5rem;
     font-weight: 800;
     letter-spacing: -0.04em;
     line-height: 1;
@@ -306,9 +301,9 @@ div[data-baseweb="tab-list"] {
 button[data-baseweb="tab"] {
     border-radius: 10px !important;
     font-weight: 600 !important;
-    font-size: 0.95rem !important;
+    font-size: 0.92rem !important;
     color: #94a3b8 !important;
-    padding: 10px 22px !important;
+    padding: 10px 18px !important;
 }
 
 button[aria-selected="true"] {
@@ -332,7 +327,7 @@ footer {visibility: hidden;}
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# Load Machine Learning Model (Cached)
+# Load IPL Machine Learning Model (Cached)
 # ---------------------------------------------------------
 @st.cache_resource
 def load_prediction_model():
@@ -351,42 +346,32 @@ def load_prediction_model():
 pipe = load_prediction_model()
 
 # ---------------------------------------------------------
-# Supported Teams & Match Venues
+# Supported Teams & Venues
 # ---------------------------------------------------------
-teams = [
-    'Chennai Super Kings',
-    'Delhi Capitals',
-    'Kings XI Punjab',
-    'Kolkata Knight Riders',
-    'Mumbai Indians',
-    'Rajasthan Royals',
-    'Royal Challengers Bangalore',
-    'Sunrisers Hyderabad',
-    'Deccan Chargers',
-    'Delhi Daredevils'
+ipl_teams = [
+    'Chennai Super Kings', 'Delhi Capitals', 'Kings XI Punjab',
+    'Kolkata Knight Riders', 'Mumbai Indians', 'Rajasthan Royals',
+    'Royal Challengers Bangalore', 'Sunrisers Hyderabad',
+    'Deccan Chargers', 'Delhi Daredevils'
 ]
 
-# Aliases mapping from ESPN / Cricinfo naming to model training labels
-TEAM_ALIAS_MAP = {
-    'Royal Challengers Bengaluru': 'Royal Challengers Bangalore',
-    'RCB': 'Royal Challengers Bangalore',
-    'CSK': 'Chennai Super Kings',
-    'MI': 'Mumbai Indians',
-    'KKR': 'Kolkata Knight Riders',
-    'SRH': 'Sunrisers Hyderabad',
-    'RR': 'Rajasthan Royals',
-    'DC': 'Delhi Capitals',
-    'PBKS': 'Kings XI Punjab',
-    'Punjab Kings': 'Kings XI Punjab',
-}
-
-cities = [
+ipl_cities = [
     'Abu Dhabi', 'Ahmedabad', 'Bangalore', 'Bengaluru', 'Bloemfontein',
     'Cape Town', 'Centurion', 'Chandigarh', 'Chennai', 'Cuttack', 'Delhi',
     'Dharamsala', 'Durban', 'East London', 'Hyderabad', 'Indore', 'Jaipur',
     'Johannesburg', 'Kimberley', 'Kolkata', 'Mohali', 'Mumbai', 'Nagpur',
     'Port Elizabeth', 'Pune', 'Raipur', 'Ranchi', 'Sharjah', 'Visakhapatnam'
 ]
+
+# Top 20 International Cricket Nations
+intl_top20_teams = [
+    'India', 'Australia', 'England', 'South Africa', 'New Zealand',
+    'Pakistan', 'West Indies', 'Sri Lanka', 'Bangladesh', 'Afghanistan',
+    'Ireland', 'Zimbabwe', 'Netherlands', 'Scotland', 'Namibia',
+    'USA', 'Nepal', 'UAE', 'Oman', 'Canada'
+]
+
+intl_venues = list(ip.VENUES_CONFIG.keys())
 
 # ---------------------------------------------------------
 # Global Live Cricket API Fetchers (ESPN Cricinfo Sports API)
@@ -447,7 +432,6 @@ def fetch_match_live_detail(league_id, event_id):
             data = json.loads(resp.read().decode('utf-8'))
             match_data['game_info'] = data.get('gameInfo', {})
             
-            # Extract batting scorecard
             for mc in data.get('matchcards', []):
                 if mc.get('headline') == 'Batting':
                     match_data['batting'] = mc.get('playerDetails', [])
@@ -461,7 +445,7 @@ def fetch_match_live_detail(league_id, event_id):
         with urllib.request.urlopen(req_pbp, timeout=5) as resp:
             pbp_data = json.loads(resp.read().decode('utf-8'))
             items = pbp_data.get('commentary', {}).get('items', [])
-            match_data['balls'] = items[:15]  # Latest 15 balls
+            match_data['balls'] = items[:15]
     except Exception:
         pass
 
@@ -472,9 +456,9 @@ def fetch_match_live_detail(league_id, event_id):
 # ---------------------------------------------------------
 st.markdown("""
 <div style="text-align: center; padding-top: 5px;">
-    <h1 class="hero-title">🏏 IPL & Cricket Live Match Center</h1>
+    <h1 class="hero-title">🏏 Global Cricket & IPL Prediction Center</h1>
     <div class="hero-subtitle">
-        <span>Ball-by-Ball Live Scores • Pitch Stats • Win Probability Engine</span>
+        <span>Live Ball-by-Ball Scores • Top 20 International Predictor (ODI, T20I, Test) • IPL ML Engine</span>
         <span>•</span>
         <span class="badge-dev">👨‍💻 Developed by Aditya Kumar</span>
     </div>
@@ -482,9 +466,13 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# Tabbed Navigation: 1. Live Match Center, 2. Win Predictor
+# Tabbed Navigation: 1. Live Match, 2. International Predictor, 3. IPL Predictor
 # ---------------------------------------------------------
-tab_live, tab_predict = st.tabs(["🔴 Cricbuzz-Style Live Matches", "🔮 IPL Win Predictor"])
+tab_live, tab_intl, tab_ipl = st.tabs([
+    "🔴 Cricbuzz-Style Live Matches", 
+    "🌍 International Predictor (ODI / T20 / Test)", 
+    "🔮 IPL Win Predictor"
+])
 
 # =========================================================
 # TAB 1: LIVE MATCH CENTER (Cricbuzz / ESPN Style)
@@ -499,15 +487,12 @@ with tab_live:
     matches = fetch_global_cricket_matches()
     
     if not matches:
-        st.info("📡 Checking cricket feeds... If no international or IPL match is currently in play, scheduled fixtures will display here.")
+        st.info("📡 Checking cricket feeds... Scheduled and live international fixtures will display here.")
     else:
-        # Match selector dropdown
         match_labels = [f"[{m['league_name']}] {m['title']} • {m['status']}" for m in matches]
         selected_idx = st.selectbox("🎯 Select Match to Inspect (Live or Upcoming):", range(len(matches)), format_func=lambda i: match_labels[i])
-        
         cur_match = matches[selected_idx]
         
-        # Match Scoreboard Header
         st.markdown(f"""
         <div class="live-header-box">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
@@ -534,20 +519,16 @@ with tab_live:
         </div>
         """, unsafe_allow_html=True)
         
-        # Fetch in-depth details (Batters on pitch, Bowler bowling, Ball-by-ball)
         detail = fetch_match_live_detail(cur_match['league_id'], cur_match['event_id'])
-        
         c_left, c_right = st.columns([1.2, 1])
         
         with c_left:
-            # 🏏 Batters on the Pitch
             st.markdown("""
             <fieldset class="smooth-border-box" style="margin-top: 0;">
                 <legend class="smooth-legend">🏏 Batters on the Pitch</legend>
             """, unsafe_allow_html=True)
             
             if detail['batting']:
-                # Find current batters (dismissal == 'not out' or top 2)
                 active_batters = [b for b in detail['batting'] if 'not out' in b.get('dismissal', '').lower()][:2]
                 if not active_batters:
                     active_batters = detail['batting'][:2]
@@ -571,11 +552,10 @@ with tab_live:
                     </div>
                     """, unsafe_allow_html=True)
             else:
-                st.markdown("<p style='color: #94a3b8; font-size: 0.88rem;'>Player batting card will populate as innings starts.</p>", unsafe_allow_html=True)
+                st.markdown("<p style='color: #94a3b8; font-size: 0.88rem;'>Batting scorecard will display when live innings begins.</p>", unsafe_allow_html=True)
                 
             st.markdown("</fieldset>", unsafe_allow_html=True)
             
-            # 🎯 Current Bowler bowling
             st.markdown("""
             <fieldset class="smooth-border-box">
                 <legend class="smooth-legend">🎯 Current Bowler</legend>
@@ -601,23 +581,20 @@ with tab_live:
                 </div>
                 """, unsafe_allow_html=True)
             else:
-                st.markdown("<p style='color: #94a3b8; font-size: 0.88rem;'>Bowling card available once bowler delivers over.</p>", unsafe_allow_html=True)
+                st.markdown("<p style='color: #94a3b8; font-size: 0.88rem;'>Bowling scorecard available once live overs commence.</p>", unsafe_allow_html=True)
                 
             st.markdown("</fieldset>", unsafe_allow_html=True)
 
         with c_right:
-            # 🎙️ Ball-by-Ball Live Commentary
             st.markdown("""
             <fieldset class="smooth-border-box" style="margin-top: 0;">
                 <legend class="smooth-legend">🎙️ Ball-by-Ball Commentary</legend>
             """, unsafe_allow_html=True)
             
             if detail['balls']:
-                # Show recent over balls summary bubbles
                 st.markdown("<div style='margin-bottom: 12px;'>", unsafe_allow_html=True)
                 bubble_html = ""
                 for ball in detail['balls'][:6]:
-                    desc = ball.get('shortText', '')
                     runs = ball.get('scoreValue', 0)
                     is_wicket = ball.get('dismissal', {}).get('dismissal', False)
                     
@@ -633,7 +610,6 @@ with tab_live:
                         bubble_html += f'<span class="ball-bubble ball-runs">{runs}</span>'
                 st.markdown(bubble_html + "</div>", unsafe_allow_html=True)
                 
-                # Detailed commentary feed
                 for item in detail['balls'][:6]:
                     over_num = item.get('over', {}).get('overs', '')
                     ball_txt = item.get('text', '') or item.get('shortText', '')
@@ -649,16 +625,198 @@ with tab_live:
             st.markdown("</fieldset>", unsafe_allow_html=True)
 
 # =========================================================
-# TAB 2: IPL WIN PREDICTOR (Machine Learning Model)
+# TAB 2: INTERNATIONAL PREDICTOR (ODI, T20I, TEST)
 # =========================================================
-with tab_predict:
+with tab_intl:
+    st.markdown("""
+    <fieldset class="smooth-border-box">
+        <legend class="smooth-legend">🌍 International Format & Teams</legend>
+    """, unsafe_allow_html=True)
+    
+    col_fmt, col_t1, col_t2, col_ven = st.columns([1, 1, 1, 1.2])
+    
+    with col_fmt:
+        intl_format = st.selectbox("🏆 Match Format", ["T20I", "ODI", "TEST"])
+        
+    with col_t1:
+        team1_intl = st.selectbox(
+            "🏏 Chasing / Batting Team" if intl_format != "TEST" else "🏏 Team 1 (Chasing/Batting 4th)",
+            intl_top20_teams,
+            index=intl_top20_teams.index("India")
+        )
+        
+    with col_t2:
+        available_t2 = [t for t in intl_top20_teams if t != team1_intl]
+        team2_intl = st.selectbox(
+            "🎯 Defending / Bowling Team" if intl_format != "TEST" else "🎯 Team 2 (Bowling 4th)",
+            available_t2,
+            index=available_t2.index("Australia") if "Australia" in available_t2 else 0
+        )
+        
+    with col_ven:
+        intl_venue = st.selectbox("📍 International Stadium / Venue", intl_venues)
+        
+    st.markdown("</fieldset>", unsafe_allow_html=True)
+    
+    # Format-Specific Match State Inputs
+    if intl_format in ["T20I", "ODI"]:
+        total_overs_limit = 20.0 if intl_format == "T20I" else 50.0
+        default_target = 180 if intl_format == "T20I" else 280
+        default_score = 110 if intl_format == "T20I" else 175
+        default_overs = 10.0 if intl_format == "T20I" else 25.0
+        
+        st.markdown(f"""
+        <fieldset class="smooth-border-box">
+            <legend class="smooth-legend">⚡ {intl_format} 2nd Innings Live Match State</legend>
+        """, unsafe_allow_html=True)
+        
+        i_col1, i_col2, i_col3, i_col4 = st.columns(4)
+        with i_col1:
+            target_intl = st.number_input('🎯 Target Score', min_value=1, max_value=500, value=default_target, step=1, key="intl_tgt")
+        with i_col2:
+            score_intl = st.number_input('🏏 Current Score', min_value=0, max_value=500, value=default_score, step=1, key="intl_scr")
+        with i_col3:
+            overs_intl = st.number_input(f'⏱️ Overs Bowled (max {int(total_overs_limit)})', min_value=0.0, max_value=total_overs_limit, value=default_overs, step=0.1, key="intl_ovr")
+        with i_col4:
+            wickets_intl = st.number_input('🔴 Wickets Fallen', min_value=0, max_value=10, value=3, step=1, key="intl_wkt")
+            
+        st.markdown("</fieldset>", unsafe_allow_html=True)
+        
+        intl_predict_btn = st.button(f'🔮 Predict {intl_format} Win Probability', use_container_width=True)
+        
+        if intl_predict_btn:
+            full_overs = int(overs_intl)
+            fractional_part = round(overs_intl - full_overs, 1)
+            balls_in_over = int(round(fractional_part * 10))
+            
+            if balls_in_over > 5:
+                st.warning(f"⚠️ Invalid overs value `{overs_intl}`. An over has at most 5 completed balls after decimal.")
+            else:
+                balls_bowled = (full_overs * 6) + balls_in_over
+                total_balls = int(total_overs_limit * 6)
+                
+                if score_intl >= target_intl:
+                    st.success(f"🎉 **{team1_intl}** has already chased the target and won!")
+                elif wickets_intl >= 10:
+                    st.error(f"🔴 **{team1_intl}** is all out! **{team2_intl}** has won!")
+                elif balls_bowled == 0:
+                    st.warning("⚠️ Overs bowled cannot be 0. Enter at least 1 legal ball.")
+                elif (total_balls - balls_bowled) <= 0:
+                    st.error(f"⏰ Overs finished! **{team2_intl}** won by {target_intl - score_intl} runs!")
+                else:
+                    res = ip.predict_international_t20_odi(
+                        intl_format, team1_intl, team2_intl, intl_venue,
+                        target_intl, score_intl, balls_bowled, wickets_intl
+                    )
+                    
+                    st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+                    st.markdown(f"""
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px;">
+                        <div class="stat-card">
+                            <div class="stat-val">{res['runs_needed']}</div>
+                            <div class="stat-lbl">Runs Needed</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-val">{res['balls_left']}</div>
+                            <div class="stat-lbl">Balls Remaining</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-val">{res['crr']}</div>
+                            <div class="stat-lbl">Current Run Rate</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-val">{res['rrr']}</div>
+                            <div class="stat-lbl">Required Run Rate</div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    r1, r2 = st.columns(2)
+                    with r1:
+                        st.markdown(f"""
+                        <div class="result-card chasing-win">
+                            <span class="res-tag" style="background: rgba(16, 185, 129, 0.2); color: #6ee7b7;">Chasing Team</span>
+                            <div class="res-number" style="color: #34d399;">{res['chasing_win']}%</div>
+                            <div class="res-name">{team1_intl}</div>
+                            <p style="color: #94a3b8; font-size: 0.8rem; margin-top: 6px;">Win Probability</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    with r2:
+                        st.markdown(f"""
+                        <div class="result-card defending-win">
+                            <span class="res-tag" style="background: rgba(239, 68, 68, 0.2); color: #fca5a5;">Defending Team</span>
+                            <div class="res-number" style="color: #f87171;">{res['defending_win']}%</div>
+                            <div class="res-name">{team2_intl}</div>
+                            <p style="color: #94a3b8; font-size: 0.8rem; margin-top: 6px;">Win Probability</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    st.progress(res['chasing_win'] / 100.0)
+
+    else:
+        # TEST MATCH SIMULATOR
+        st.markdown("""
+        <fieldset class="smooth-border-box">
+            <legend class="smooth-legend">⏳ 5-Day Test Match Situation</legend>
+        """, unsafe_allow_html=True)
+        
+        t_col1, t_col2, t_col3, t_col4 = st.columns(4)
+        with t_col1:
+            test_day = st.slider("📅 Match Day", min_value=1, max_value=5, value=5)
+        with t_col2:
+            test_overs_today = st.number_input("⏱️ Overs Remaining Today", min_value=0, max_value=90, value=45)
+        with t_col3:
+            lead_or_target = st.number_input("🎯 4th Innings Runs Needed / Lead", min_value=1, max_value=600, value=140)
+        with t_col4:
+            wickets_in_hand_test = st.number_input("🔴 Wickets in Hand for Chasing Team", min_value=1, max_value=10, value=6)
+            
+        st.markdown("</fieldset>", unsafe_allow_html=True)
+        
+        test_predict_btn = st.button('🔮 Predict Test Match Outcome', use_container_width=True)
+        
+        if test_predict_btn:
+            res_test = ip.predict_test_match(
+                team1_intl, team2_intl, intl_venue,
+                test_day, test_overs_today, lead_or_target, wickets_in_hand_test
+            )
+            
+            st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+            col_t_win1, col_t_draw, col_t_win2 = st.columns(3)
+            
+            with col_t_win1:
+                st.markdown(f"""
+                <div class="result-card chasing-win">
+                    <span class="res-tag" style="background: rgba(16, 185, 129, 0.2); color: #6ee7b7;">Chasing Win</span>
+                    <div class="res-number" style="color: #34d399;">{res_test['team1_win']}%</div>
+                    <div class="res-name">{team1_intl}</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+            with col_t_draw:
+                st.markdown(f"""
+                <div class="result-card draw-win">
+                    <span class="res-tag" style="background: rgba(234, 179, 8, 0.2); color: #fde047;">Match Drawn</span>
+                    <div class="res-number" style="color: #facc15;">{res_test['draw']}%</div>
+                    <div class="res-name">Draw / Tie</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+            with col_t_win2:
+                st.markdown(f"""
+                <div class="result-card defending-win">
+                    <span class="res-tag" style="background: rgba(239, 68, 68, 0.2); color: #fca5a5;">Defending Win</span>
+                    <div class="res-number" style="color: #f87171;">{res_test['team2_win']}%</div>
+                    <div class="res-name">{team2_intl}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+# =========================================================
+# TAB 3: IPL WIN PREDICTOR (Machine Learning Model)
+# =========================================================
+with tab_ipl:
     if pipe is None:
         st.error("❌ **Model file (`models/pipe.pkl`) not found!** Please ensure the trained model is uploaded.")
         st.stop()
 
-    # ---------------------------------------------------------
-    # Match Setup & Teams
-    # ---------------------------------------------------------
     st.markdown("""
     <fieldset class="smooth-border-box">
         <legend class="smooth-legend">🏟️ Match Setup & Teams</legend>
@@ -669,30 +827,30 @@ with tab_predict:
     with col_team1:
         batting_team = st.selectbox(
             '🏏 Batting Team (Chasing)',
-            options=sorted(teams),
-            index=sorted(teams).index('Mumbai Indians') if 'Mumbai Indians' in teams else 0
+            options=sorted(ipl_teams),
+            index=sorted(ipl_teams).index('Mumbai Indians') if 'Mumbai Indians' in ipl_teams else 0,
+            key="ipl_bat"
         )
 
     with col_team2:
-        available_bowling_teams = [t for t in sorted(teams) if t != batting_team]
+        available_bowling_teams = [t for t in sorted(ipl_teams) if t != batting_team]
         bowling_team = st.selectbox(
             '🎯 Bowling Team (Defending)',
             options=available_bowling_teams,
-            index=available_bowling_teams.index('Chennai Super Kings') if 'Chennai Super Kings' in available_bowling_teams else 0
+            index=available_bowling_teams.index('Chennai Super Kings') if 'Chennai Super Kings' in available_bowling_teams else 0,
+            key="ipl_bowl"
         )
 
     with col_venue:
         selected_city = st.selectbox(
             '📍 Host City / Venue',
-            options=sorted(cities),
-            index=sorted(cities).index('Mumbai') if 'Mumbai' in cities else 0
+            options=sorted(ipl_cities),
+            index=sorted(ipl_cities).index('Mumbai') if 'Mumbai' in ipl_cities else 0,
+            key="ipl_city"
         )
 
     st.markdown("</fieldset>", unsafe_allow_html=True)
 
-    # ---------------------------------------------------------
-    # 2nd Innings Live Match State
-    # ---------------------------------------------------------
     st.markdown("""
     <fieldset class="smooth-border-box">
         <legend class="smooth-legend">⚡ 2nd Innings Live Match State</legend>
@@ -701,23 +859,20 @@ with tab_predict:
     col_tgt, col_scr, col_ovr, col_wkt = st.columns(4)
 
     with col_tgt:
-        target = st.number_input('🎯 Target Score', min_value=1, max_value=350, value=180, step=1)
+        target = st.number_input('🎯 Target Score', min_value=1, max_value=350, value=180, step=1, key="ipl_tgt")
 
     with col_scr:
-        score = st.number_input('🏏 Current Score', min_value=0, max_value=350, value=120, step=1)
+        score = st.number_input('🏏 Current Score', min_value=0, max_value=350, value=120, step=1, key="ipl_scr")
 
     with col_ovr:
-        overs = st.number_input('⏱️ Overs Bowled (e.g. 10.2)', min_value=0.0, max_value=20.0, value=10.0, step=0.1)
+        overs = st.number_input('⏱️ Overs Bowled (e.g. 10.2)', min_value=0.0, max_value=20.0, value=10.0, step=0.1, key="ipl_ovr")
 
     with col_wkt:
-        wickets = st.number_input('🔴 Wickets Fallen', min_value=0, max_value=10, value=3, step=1)
+        wickets = st.number_input('🔴 Wickets Fallen', min_value=0, max_value=10, value=3, step=1, key="ipl_wkt")
 
     st.markdown("</fieldset>", unsafe_allow_html=True)
 
-    # ---------------------------------------------------------
-    # Prediction Button & Results
-    # ---------------------------------------------------------
-    predict_btn = st.button('🔮 Calculate Win Probability', use_container_width=True)
+    predict_btn = st.button('🔮 Calculate IPL Win Probability', use_container_width=True)
 
     if predict_btn:
         full_overs = int(overs)
@@ -725,7 +880,7 @@ with tab_predict:
         balls_in_over = int(round(fractional_part * 10))
         
         if balls_in_over > 5:
-            st.warning(f"⚠️ Invalid overs value `{overs}`. An over has at most 5 completed balls after decimal (e.g., `{full_overs}.5`).")
+            st.warning(f"⚠️ Invalid overs value `{overs}`. An over has at most 5 completed balls after decimal.")
         else:
             total_balls_bowled = (full_overs * 6) + balls_in_over
             balls_left = 120 - total_balls_bowled
@@ -737,7 +892,7 @@ with tab_predict:
             elif wickets >= 10:
                 st.error(f"🔴 **{batting_team}** is all out! **{bowling_team}** has won the match!")
             elif total_balls_bowled == 0:
-                st.warning("⚠️ Overs bowled cannot be 0 when calculating dynamic chase run rates. Enter at least 1 legal ball (e.g. 0.1).")
+                st.warning("⚠️ Overs bowled cannot be 0 when calculating dynamic chase run rates. Enter at least 1 legal ball.")
             elif balls_left <= 0:
                 if runs_left > 0:
                     st.error(f"⏰ Innings finished (20 overs completed)! **{bowling_team}** won by {runs_left} runs!")
@@ -770,7 +925,6 @@ with tab_predict:
 
                 st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
                 
-                # Match Status Grid
                 st.markdown(f"""
                 <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px;">
                     <div class="stat-card">
@@ -792,7 +946,6 @@ with tab_predict:
                 </div>
                 """, unsafe_allow_html=True)
 
-                # Results Cards
                 c1, c2 = st.columns(2)
 
                 with c1:
@@ -823,7 +976,7 @@ with tab_predict:
 # ---------------------------------------------------------
 st.markdown("""
 <div class="custom-footer">
-    IPL & International Cricket Match Center • Live Scores & Machine Learning Engine<br>
+    Global Cricket & IPL Match Center • Top 20 International & Franchise Predictions<br>
     Crafted by <strong>Aditya Kumar</strong>
 </div>
 """, unsafe_allow_html=True)
