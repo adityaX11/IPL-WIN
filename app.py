@@ -2,6 +2,8 @@ import streamlit as st
 import pickle
 import pandas as pd
 import os
+import urllib.request
+import json
 
 # ---------------------------------------------------------
 # Page Configuration
@@ -10,169 +12,241 @@ st.set_page_config(
     page_title="IPL Victory Predictor | Aditya Kumar",
     page_icon="🏏",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # ---------------------------------------------------------
-# Glassmorphic Custom Styling & Animation
+# Sleek, Modern Glassmorphism Styling
 # ---------------------------------------------------------
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
-html, body, [class*="css"] {
-    font-family: 'Poppins', sans-serif;
+* {
+    font-family: 'Plus Jakarta Sans', sans-serif !important;
 }
 
-/* Background Gradient with animated mesh vibe */
+/* Background gradient */
 .stApp {
-    background: radial-gradient(circle at 10% 20%, rgba(26, 36, 63, 0.95), rgba(10, 15, 30, 0.98)),
-                linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #030712 100%);
-    background-attachment: fixed;
-    color: #f1f5f9;
+    background: radial-gradient(circle at 15% 10%, #1e1b4b 0%, #0f172a 45%, #020617 100%) fixed !important;
+    color: #e2e8f0;
 }
 
-/* Glassmorphism Card Container */
-.glass-card {
-    background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-    padding: 24px;
-    margin-bottom: 24px;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+/* Page container */
+.block-container {
+    padding-top: 1.8rem !important;
+    padding-bottom: 3rem !important;
+    max-width: 1100px !important;
 }
 
-.glass-card:hover {
-    box-shadow: 0 12px 40px 0 rgba(99, 102, 241, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+/* Clean fieldset border styling: title embedded on the line */
+fieldset.smooth-border-box {
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    border-radius: 18px !important;
+    padding: 18px 24px 20px 24px !important;
+    margin: 15px 0 25px 0 !important;
+    background: rgba(255, 255, 255, 0.02) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    box-shadow: 0 16px 36px -15px rgba(0, 0, 0, 0.5) !important;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease !important;
 }
 
-/* Header Glow Banner */
+fieldset.smooth-border-box:hover {
+    border-color: rgba(99, 102, 241, 0.35) !important;
+    box-shadow: 0 20px 40px -12px rgba(99, 102, 241, 0.12) !important;
+}
+
+/* Legend placed directly on the border line */
+legend.smooth-legend {
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    color: #e0e7ff !important;
+    padding: 2px 14px !important;
+    border-radius: 9999px !important;
+    background: linear-gradient(135deg, rgba(30, 27, 75, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%) !important;
+    border: 1px solid rgba(129, 140, 248, 0.35) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    letter-spacing: 0.3px !important;
+}
+
+/* Hero Header styling */
 .hero-title {
     font-size: 2.5rem;
     font-weight: 800;
     text-align: center;
-    background: linear-gradient(90deg, #38bdf8, #818cf8, #c084fc, #f43f5e);
+    background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 50%, #f472b6 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     margin-bottom: 6px;
-    letter-spacing: -0.5px;
+    letter-spacing: -0.03em;
+    line-height: 1.2;
 }
 
 .hero-subtitle {
     text-align: center;
     color: #94a3b8;
-    font-size: 1.05rem;
+    font-size: 0.92rem;
     font-weight: 400;
-    margin-bottom: 25px;
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
 .badge-dev {
-    display: inline-block;
-    padding: 4px 14px;
-    border-radius: 20px;
-    background: rgba(99, 102, 241, 0.15);
-    border: 1px solid rgba(99, 102, 241, 0.4);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 14px;
+    border-radius: 9999px;
+    background: rgba(99, 102, 241, 0.12);
+    border: 1px solid rgba(129, 140, 248, 0.25);
     color: #c7d2fe;
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     font-weight: 600;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
+    backdrop-filter: blur(10px);
 }
 
-/* Metrics and Chips */
-.metric-box {
-    background: rgba(255, 255, 255, 0.04);
+/* Live Score card badge */
+.live-feed-banner {
+    background: rgba(56, 189, 248, 0.08);
+    border: 1px solid rgba(56, 189, 248, 0.25);
     border-radius: 14px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    padding: 14px;
+    padding: 12px 18px;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+/* Stat & KPI Cards */
+.stat-card {
+    background: rgba(255, 255, 255, 0.025);
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 16px 10px;
     text-align: center;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
-.metric-box .val {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #38bdf8;
-}
-.metric-box .lbl {
-    font-size: 0.8rem;
-    color: #94a3b8;
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-}
-
-/* Result Cards */
-.result-card {
-    border-radius: 20px;
-    padding: 24px;
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-    backdrop-filter: blur(12px);
-    transition: all 0.3s ease;
-}
-
-.result-batting {
-    background: linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(16, 185, 129, 0.05) 100%);
-    border: 1px solid rgba(34, 197, 94, 0.35);
-    box-shadow: 0 8px 30px rgba(34, 197, 94, 0.2);
-}
-
-.result-bowling {
-    background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.05) 100%);
-    border: 1px solid rgba(239, 68, 68, 0.35);
-    box-shadow: 0 8px 30px rgba(239, 68, 68, 0.2);
-}
-
-.result-pct {
-    font-size: 3.5rem;
+.stat-val {
+    font-size: 1.65rem;
     font-weight: 800;
-    line-height: 1.1;
-    margin: 10px 0;
+    color: #38bdf8;
+    letter-spacing: -0.02em;
+}
+.stat-lbl {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-top: 4px;
 }
 
-.result-team {
+/* Prediction Result Cards */
+.result-card {
+    border-radius: 22px;
+    padding: 28px 24px;
+    text-align: center;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    transition: transform 0.3s ease;
+}
+.result-card:hover {
+    transform: translateY(-3px);
+}
+
+.chasing-win {
+    background: linear-gradient(145deg, rgba(16, 185, 129, 0.12) 0%, rgba(5, 150, 105, 0.02) 100%);
+    border: 1px solid rgba(52, 211, 153, 0.25);
+    box-shadow: 0 20px 40px -15px rgba(16, 185, 129, 0.2), inset 0 1px 0 rgba(52, 211, 153, 0.3);
+}
+
+.defending-win {
+    background: linear-gradient(145deg, rgba(239, 68, 68, 0.12) 0%, rgba(185, 28, 28, 0.02) 100%);
+    border: 1px solid rgba(248, 113, 113, 0.25);
+    box-shadow: 0 20px 40px -15px rgba(239, 68, 68, 0.2), inset 0 1px 0 rgba(248, 113, 113, 0.3);
+}
+
+.res-tag {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 9999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.res-number {
+    font-size: 3.8rem;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    margin: 14px 0 8px 0;
+}
+
+.res-name {
     font-size: 1.25rem;
     font-weight: 700;
-    letter-spacing: 0.5px;
+    color: #f8fafc;
 }
 
-.footer-text {
+/* Button Styling */
+div.stButton > button {
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #db2777 100%) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    padding: 14px 28px !important;
+    font-size: 1.05rem !important;
+    font-weight: 700 !important;
+    border-radius: 14px !important;
+    box-shadow: 0 12px 30px -8px rgba(124, 58, 237, 0.45) !important;
+    transition: all 0.25s ease !important;
+    margin-top: 6px !important;
+}
+
+div.stButton > button:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 18px 36px -6px rgba(219, 39, 119, 0.55) !important;
+    border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* Form Controls */
+div[data-baseweb="select"] > div,
+div[data-baseweb="input"] > div {
+    background: rgba(15, 23, 42, 0.6) !important;
+    border-radius: 12px !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    color: #f1f5f9 !important;
+    transition: all 0.2s ease !important;
+}
+
+div[data-baseweb="select"] > div:hover,
+div[data-baseweb="input"] > div:hover {
+    border-color: rgba(99, 102, 241, 0.4) !important;
+    background: rgba(15, 23, 42, 0.8) !important;
+}
+
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+
+.custom-footer {
     text-align: center;
-    font-size: 0.85rem;
     color: #64748b;
+    font-size: 0.82rem;
     margin-top: 40px;
-    padding-top: 20px;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-/* Custom button styling */
-div.stButton > button:first-child {
-    background: linear-gradient(90deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
-    color: #ffffff;
-    border: none;
-    padding: 14px 28px;
-    font-size: 1.1rem;
-    font-weight: 700;
-    border-radius: 14px;
-    width: 100%;
-    cursor: pointer;
-    box-shadow: 0 10px 25px -5px rgba(168, 85, 247, 0.5);
-    transition: all 0.3s ease;
-}
-
-div.stButton > button:first-child:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 15px 30px -5px rgba(236, 72, 153, 0.6);
-    color: #ffffff;
-}
-
-/* Sidebar styling */
-[data-testid="stSidebar"] {
-    background: rgba(15, 23, 42, 0.75) !important;
-    backdrop-filter: blur(20px);
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    padding-top: 18px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 </style>
 """, unsafe_allow_html=True)
@@ -212,6 +286,20 @@ teams = [
     'Delhi Daredevils'
 ]
 
+# Aliases mapping from ESPN / Cricbuzz naming to model training labels
+TEAM_ALIAS_MAP = {
+    'Royal Challengers Bengaluru': 'Royal Challengers Bangalore',
+    'RCB': 'Royal Challengers Bangalore',
+    'CSK': 'Chennai Super Kings',
+    'MI': 'Mumbai Indians',
+    'KKR': 'Kolkata Knight Riders',
+    'SRH': 'Sunrisers Hyderabad',
+    'RR': 'Rajasthan Royals',
+    'DC': 'Delhi Capitals',
+    'PBKS': 'Kings XI Punjab',
+    'Punjab Kings': 'Kings XI Punjab',
+}
+
 cities = [
     'Abu Dhabi', 'Ahmedabad', 'Bangalore', 'Bengaluru', 'Bloemfontein',
     'Cape Town', 'Centurion', 'Chandigarh', 'Chennai', 'Cuttack', 'Delhi',
@@ -221,54 +309,89 @@ cities = [
 ]
 
 # ---------------------------------------------------------
-# Sidebar - Developer Profile & Match Insights
+# Live ESPN / Cricinfo Cricket API Fetcher
 # ---------------------------------------------------------
-with st.sidebar:
-    st.markdown("""
-        <div style="text-align: center; padding: 10px 0 20px 0;">
-            <div style="font-size: 3rem;">⚡</div>
-            <h2 style="margin: 0; color: #f8fafc; font-weight: 700;">IPL Win Predictor</h2>
-            <p style="color: #94a3b8; font-size: 0.85rem;">Powered by Machine Learning</p>
-            <span class="badge-dev">👨‍💻 Developed by Aditya Kumar</span>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    st.markdown("### 📊 About the Model")
-    st.info(
-        "This application uses an **ensemble ColumnTransformer & Logistic Regression pipeline** "
-        "trained on historical IPL ball-by-ball encounter records to estimate real-time chasing win probability."
-    )
-    
-    st.markdown("### 🎯 Live Match Factors")
-    st.markdown("""
-    - **Current Run Rate (CRR)**
-    - **Required Run Rate (RRR)**
-    - **Wickets in Hand**
-    - **Balls Remaining in Chase**
-    - **Host Venue & Team Matchups**
-    """)
-    
-    st.markdown("---")
-    st.markdown(
-        "<div style='text-align: center; color: #64748b; font-size: 0.8rem;'>"
-        "© 2025-2026 Aditya Kumar<br>All Rights Reserved"
-        "</div>", 
-        unsafe_allow_html=True
-    )
+@st.cache_data(ttl=60)
+def fetch_espn_live_matches():
+    """Fetch live or recent IPL scorecards from ESPN Cricinfo Sports API."""
+    url = "https://site.api.espn.com/apis/site/v2/sports/cricket/8048/scoreboard"
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+            events = data.get('events', [])
+            parsed_matches = []
+            
+            for ev in events:
+                comp = ev.get('competitions', [{}])[0]
+                competitors = comp.get('competitors', [])
+                venue_data = comp.get('venue', {})
+                venue_city = venue_data.get('address', {}).get('city', 'Mumbai')
+                status_desc = comp.get('status', {}).get('summary', '') or ev.get('status', {}).get('type', {}).get('description', '')
+                
+                if len(competitors) >= 2:
+                    team1_info = competitors[0].get('team', {})
+                    team2_info = competitors[1].get('team', {})
+                    
+                    t1_name = team1_info.get('displayName', '')
+                    t2_name = team2_info.get('displayName', '')
+                    
+                    # Normalize names
+                    t1_norm = TEAM_ALIAS_MAP.get(t1_name, t1_name)
+                    t2_norm = TEAM_ALIAS_MAP.get(t2_name, t2_name)
+                    
+                    # Check innings linescores
+                    lines1 = competitors[0].get('linescores', [])
+                    lines2 = competitors[1].get('linescores', [])
+                    
+                    # Default parsing
+                    target_val = 180
+                    score_val = 120
+                    overs_val = 10.0
+                    wickets_val = 3
+                    batting_team = t2_norm if t2_norm in teams else teams[0]
+                    bowling_team = t1_norm if t1_norm in teams else teams[1]
+                    
+                    # Look for 2nd innings
+                    for line in lines1:
+                        if line.get('period') == 1 and line.get('runs', 0) > 0:
+                            target_val = int(line.get('runs')) + 1
+                    for line in lines2:
+                        if line.get('period') == 2 and line.get('runs', 0) > 0:
+                            score_val = int(line.get('runs'))
+                            overs_val = float(line.get('overs', 10.0))
+                            wickets_val = int(line.get('wickets', 3))
+                            batting_team = t2_norm
+                            bowling_team = t1_norm
+                            
+                    parsed_matches.append({
+                        'title': ev.get('name', f"{t1_name} vs {t2_name}"),
+                        'short_name': ev.get('shortName', 'IPL Match'),
+                        'status': status_desc,
+                        'venue_city': venue_city if venue_city in cities else 'Ahmedabad',
+                        'batting_team': batting_team if batting_team in teams else teams[0],
+                        'bowling_team': bowling_team if bowling_team in teams else teams[1],
+                        'target': target_val,
+                        'score': score_val,
+                        'overs': overs_val,
+                        'wickets': wickets_val
+                    })
+            return parsed_matches
+    except Exception:
+        return []
 
 # ---------------------------------------------------------
-# Main Page Header
+# Hero Title & Developer Attribution
 # ---------------------------------------------------------
 st.markdown("""
-    <div style="text-align: center; margin-top: -15px; margin-bottom: 25px;">
-        <h1 class="hero-title">🏏 IPL Match Win Probability Predictor</h1>
-        <p class="hero-subtitle">
-            Accurate in-game win predictions for 2nd innings run chases • 
-            <span class="badge-dev">Crafted by Aditya Kumar</span>
-        </p>
+<div style="text-align: center; padding-top: 10px;">
+    <h1 class="hero-title">🏏 IPL Match Win Predictor</h1>
+    <div class="hero-subtitle">
+        <span>Real-time chase probability engine</span>
+        <span>•</span>
+        <span class="badge-dev">👨‍💻 Developed by Aditya Kumar</span>
     </div>
+</div>
 """, unsafe_allow_html=True)
 
 if pipe is None:
@@ -276,100 +399,149 @@ if pipe is None:
     st.stop()
 
 # ---------------------------------------------------------
-# Form Inputs: Match Setup
+# Live Score API Integration (ESPN / Cricinfo)
 # ---------------------------------------------------------
-st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-st.markdown("#### 🏟️ Match Setup & Teams")
+live_matches = fetch_espn_live_matches()
+
+# Initialize session state for inputs if not present
+if "batting_team_val" not in st.session_state:
+    st.session_state.batting_team_val = 'Mumbai Indians'
+if "bowling_team_val" not in st.session_state:
+    st.session_state.bowling_team_val = 'Chennai Super Kings'
+if "venue_val" not in st.session_state:
+    st.session_state.venue_val = 'Mumbai'
+if "target_val" not in st.session_state:
+    st.session_state.target_val = 180
+if "score_val" not in st.session_state:
+    st.session_state.score_val = 120
+if "overs_val" not in st.session_state:
+    st.session_state.overs_val = 10.0
+if "wickets_val" not in st.session_state:
+    st.session_state.wickets_val = 3
+
+with st.expander("📡 Live Match Score Fetcher (ESPN Sports API)", expanded=False):
+    if live_matches:
+        match_options = [f"{m['title']} ({m['status']})" for m in live_matches]
+        sel_match_idx = st.selectbox(
+            "Select active / recent IPL match to auto-fill state:",
+            range(len(match_options)),
+            format_func=lambda x: match_options[x]
+        )
+        if st.button("⚡ Sync Live Match Data to Predictor"):
+            selected_match = live_matches[sel_match_idx]
+            st.session_state.batting_team_val = selected_match['batting_team']
+            st.session_state.bowling_team_val = selected_match['bowling_team']
+            st.session_state.venue_val = selected_match['venue_city']
+            st.session_state.target_val = selected_match['target']
+            st.session_state.score_val = selected_match['score']
+            st.session_state.overs_val = selected_match['overs']
+            st.session_state.wickets_val = selected_match['wickets']
+            st.toast(f"✅ Loaded live match state: {selected_match['title']}")
+            st.rerun()
+    else:
+        st.info("ℹ️ No active live IPL match right now. Live matches will appear here automatically on game days via ESPN Cricinfo API.")
+
+# ---------------------------------------------------------
+# Match Setup & Teams (Smooth Border Line with Integrated Legend)
+# ---------------------------------------------------------
+st.markdown("""
+<fieldset class="smooth-border-box">
+    <legend class="smooth-legend">🏟️ Match Setup & Teams</legend>
+""", unsafe_allow_html=True)
 
 col_team1, col_team2, col_venue = st.columns([1, 1, 1])
 
+# Safe index retrieval
+bat_idx = sorted(teams).index(st.session_state.batting_team_val) if st.session_state.batting_team_val in teams else 0
 with col_team1:
     batting_team = st.selectbox(
         '🏏 Batting Team (Chasing)',
         options=sorted(teams),
-        index=sorted(teams).index('Mumbai Indians') if 'Mumbai Indians' in teams else 0,
-        help="Select the team currently batting in the 2nd innings"
+        index=bat_idx,
+        key="bat_select"
     )
 
+available_bowling_teams = [t for t in sorted(teams) if t != batting_team]
+bowl_default = st.session_state.bowling_team_val if st.session_state.bowling_team_val in available_bowling_teams else available_bowling_teams[0]
+bowl_idx = available_bowling_teams.index(bowl_default)
+
 with col_team2:
-    # Filter out batting team to avoid accidental same-team selection
-    available_bowling_teams = [t for t in sorted(teams) if t != batting_team]
     bowling_team = st.selectbox(
         '🎯 Bowling Team (Defending)',
         options=available_bowling_teams,
-        index=available_bowling_teams.index('Chennai Super Kings') if 'Chennai Super Kings' in available_bowling_teams else 0,
-        help="Select the team currently bowling/defending the target"
+        index=bowl_idx,
+        key="bowl_select"
     )
 
+city_idx = sorted(cities).index(st.session_state.venue_val) if st.session_state.venue_val in cities else 0
 with col_venue:
     selected_city = st.selectbox(
         '📍 Host City / Venue',
         options=sorted(cities),
-        index=sorted(cities).index('Mumbai') if 'Mumbai' in cities else 0,
-        help="Host city where the match is taking place"
+        index=city_idx,
+        key="city_select"
     )
 
-st.markdown('</div>', unsafe_allow_html=True)
+st.markdown("</fieldset>", unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# Match Dynamics & Live Score
+# 2nd Innings Live Match State (Smooth Border Line with Integrated Legend)
 # ---------------------------------------------------------
-st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-st.markdown("#### ⚡ 2nd Innings Live Match State")
+st.markdown("""
+<fieldset class="smooth-border-box">
+    <legend class="smooth-legend">⚡ 2nd Innings Live Match State</legend>
+""", unsafe_allow_html=True)
 
-row1_col1, row1_col2 = st.columns(2)
+col_tgt, col_scr, col_ovr, col_wkt = st.columns(4)
 
-with row1_col1:
+with col_tgt:
     target = st.number_input(
-        '🎯 Target Score (1st Innings Runs + 1)',
+        '🎯 Target Score',
         min_value=1,
         max_value=350,
-        value=180,
+        value=int(st.session_state.target_val),
         step=1,
-        help="Total runs the chasing team needs to reach for victory"
+        key="tgt_input"
     )
 
-with row1_col2:
+with col_scr:
     score = st.number_input(
-        '🏏 Current Chasing Score',
+        '🏏 Current Score',
         min_value=0,
         max_value=350,
-        value=95,
+        value=int(st.session_state.score_val),
         step=1,
-        help="Runs scored so far in the 2nd innings"
+        key="scr_input"
     )
 
-row2_col1, row2_col2 = st.columns(2)
-
-with row2_col1:
+with col_ovr:
     overs = st.number_input(
-        '⏱️ Overs Completed (e.g. 10.2)',
+        '⏱️ Overs Bowled (e.g. 10.2)',
         min_value=0.0,
         max_value=20.0,
-        value=10.0,
+        value=float(st.session_state.overs_val),
         step=0.1,
-        help="Overs bowled so far (valid balls: .0, .1, .2, .3, .4, .5)"
+        key="ovr_input"
     )
 
-with row2_col2:
+with col_wkt:
     wickets = st.number_input(
         '🔴 Wickets Fallen',
         min_value=0,
         max_value=10,
-        value=2,
+        value=int(st.session_state.wickets_val),
         step=1,
-        help="Total wickets lost by the chasing team"
+        key="wkt_input"
     )
 
-st.markdown('</div>', unsafe_allow_html=True)
+st.markdown("</fieldset>", unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# Validation & Prediction Execution
+# Prediction Button & Results
 # ---------------------------------------------------------
 predict_btn = st.button('🔮 Calculate Win Probability', use_container_width=True)
 
 if predict_btn:
-    # Validate ball fractions in overs input (e.g., 10.6 is invalid, should be 11.0)
     full_overs = int(overs)
     fractional_part = round(overs - full_overs, 1)
     balls_in_over = int(round(fractional_part * 10))
@@ -382,7 +554,6 @@ if predict_btn:
         runs_left = target - score
         wickets_in_hand = 10 - wickets
         
-        # Immediate game termination checks
         if score >= target:
             st.success(f"🎉 **{batting_team}** has already chased down the target and won the match!")
         elif wickets >= 10:
@@ -395,12 +566,10 @@ if predict_btn:
             else:
                 st.info("🤝 Match tied!")
         else:
-            # Safe calculation of Run Rates
             effective_overs = total_balls_bowled / 6.0
             crr = score / effective_overs
             rrr = (runs_left * 6.0) / balls_left
 
-            # Prepare Data for Pipeline
             input_df = pd.DataFrame({
                 'batting_team': [batting_team],
                 'bowling_team': [bowling_team],
@@ -413,75 +582,70 @@ if predict_btn:
                 'rrr': [rrr]
             })
 
-            with st.spinner("Analyzing match dynamics with ML model..."):
+            with st.spinner("Analyzing match state with ML pipeline..."):
                 result = pipe.predict_proba(input_df)
-                loss_prob = result[0][0]  # Bowling team win probability
-                win_prob = result[0][1]   # Batting team win probability
+                loss_prob = result[0][0]
+                win_prob = result[0][1]
                 
                 win_pct = round(win_prob * 100, 1)
                 loss_pct = round(loss_prob * 100, 1)
 
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
             
-            # Live Metrics Strip
+            # Match Status Grid
             st.markdown(f"""
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 25px;">
-                <div class="metric-box">
-                    <div class="val">{runs_left}</div>
-                    <div class="lbl">Runs Needed</div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px;">
+                <div class="stat-card">
+                    <div class="stat-val">{runs_left}</div>
+                    <div class="stat-lbl">Runs Needed</div>
                 </div>
-                <div class="metric-box">
-                    <div class="val">{balls_left}</div>
-                    <div class="lbl">Balls Remaining</div>
+                <div class="stat-card">
+                    <div class="stat-val">{balls_left}</div>
+                    <div class="stat-lbl">Balls Left</div>
                 </div>
-                <div class="metric-box">
-                    <div class="val">{crr:.2f}</div>
-                    <div class="lbl">Current Run Rate</div>
+                <div class="stat-card">
+                    <div class="stat-val">{crr:.2f}</div>
+                    <div class="stat-lbl">Current Run Rate</div>
                 </div>
-                <div class="metric-box">
-                    <div class="val">{rrr:.2f}</div>
-                    <div class="lbl">Req. Run Rate</div>
+                <div class="stat-card">
+                    <div class="stat-val">{rrr:.2f}</div>
+                    <div class="stat-lbl">Required Run Rate</div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
-            # Glassmorphism Result Displays
-            res_col1, res_col2 = st.columns(2)
+            # Results Cards
+            c1, c2 = st.columns(2)
 
-            with res_col1:
+            with c1:
                 st.markdown(f"""
-                <div class="result-card result-batting">
-                    <div class="badge-dev" style="background: rgba(34, 197, 94, 0.2); border-color: rgba(34, 197, 94, 0.5); color: #86efac;">
-                        CHASING TEAM
-                    </div>
-                    <div class="result-pct" style="color: #4ade80;">{win_pct}%</div>
-                    <div class="result-team" style="color: #f0fdf4;">{batting_team}</div>
-                    <p style="color: #86efac; font-size: 0.85rem; margin-top: 8px;">Estimated Win Probability</p>
+                <div class="result-card chasing-win">
+                    <span class="res-tag" style="background: rgba(16, 185, 129, 0.2); color: #6ee7b7;">Chasing Team</span>
+                    <div class="res-number" style="color: #34d399;">{win_pct}%</div>
+                    <div class="res-name">{batting_team}</div>
+                    <p style="color: #94a3b8; font-size: 0.8rem; margin-top: 6px;">Win Probability</p>
                 </div>
                 """, unsafe_allow_html=True)
 
-            with res_col2:
+            with c2:
                 st.markdown(f"""
-                <div class="result-card result-bowling">
-                    <div class="badge-dev" style="background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.5); color: #fca5a5;">
-                        DEFENDING TEAM
-                    </div>
-                    <div class="result-pct" style="color: #f87171;">{loss_pct}%</div>
-                    <div class="result-team" style="color: #fef2f2;">{bowling_team}</div>
-                    <p style="color: #fca5a5; font-size: 0.85rem; margin-top: 8px;">Estimated Win Probability</p>
+                <div class="result-card defending-win">
+                    <span class="res-tag" style="background: rgba(239, 68, 68, 0.2); color: #fca5a5;">Defending Team</span>
+                    <div class="res-number" style="color: #f87171;">{loss_pct}%</div>
+                    <div class="res-name">{bowling_team}</div>
+                    <p style="color: #94a3b8; font-size: 0.8rem; margin-top: 6px;">Win Probability</p>
                 </div>
                 """, unsafe_allow_html=True)
 
-            # Animated Progress Bar
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
             st.progress(win_prob)
 
 # ---------------------------------------------------------
-# Footer
+# Clean Footer
 # ---------------------------------------------------------
 st.markdown("""
-<div class="footer-text">
-    IPL Win Predictor Web App • Engineered with Machine Learning & Streamlit<br>
-    <strong>Designed & Developed by Aditya Kumar</strong> • Ready for Streamlit Cloud Deployment
+<div class="custom-footer">
+    IPL Match Prediction Engine • Powered by Machine Learning<br>
+    Crafted by <strong>Aditya Kumar</strong>
 </div>
 """, unsafe_allow_html=True)
